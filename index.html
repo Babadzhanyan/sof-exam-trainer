@@ -136,7 +136,7 @@ function save(){localStorage.setItem(LS,JSON.stringify(S))}
 function st(id){return S.prog[id]||{status:'unseen',box:0,seen:0,last:-1}}
 
 function tierRank(t){return t==='T1'?0:t==='T2'?1:t==='T3'?2:1.5}
-function subsOf(block){const seen=[],map={};DATA.filter(q=>q.block===block).sort((a,b)=>tierRank(a.tier)-tierRank(b.tier)===0?0:0).forEach(q=>{const s=q.subblock||'Прочее';if(!map[s]){map[s]=[];seen.push(s);}map[s].push(q);});return seen.map(t=>({key:block+'|'+t,title:t,qs:map[t]}));}
+function subsOf(block){const seen=[],map={};DATA.filter(q=>q.block===block).forEach(q=>{const s=q.subblock||'Прочее';if(!map[s]){map[s]=[];seen.push(s);}map[s].push(q);});return seen.map(t=>({key:block+'|'+t,title:t,qs:map[t].slice().sort((a,b)=>tierRank(a.tier)-tierRank(b.tier))}));}
 function allSubs(){const r=[];BLOCK_LIST.forEach(b=>subsOf(b.num).forEach(s=>r.push(Object.assign({block:b.num},s))));return r;}
 function les(key){return S.lessons[key]||{phase:'theory',theoryIdx:0,practiceIdx:0,testScore:null,passed:false}}
 function lesStatus(key){const l=les(key);if(l.passed)return{cls:'done',txt:'Пройдено · '+Math.round((l.testScore||0)*100)+'%'};
@@ -151,9 +151,11 @@ function render(){const app=document.getElementById('app');updateCount();
   else if(view==='lesson')app.innerHTML=lessonHTML();
   else if(view==='cheat')app.innerHTML=cheatHTML();
   else if(view==='progress')app.innerHTML=progHTML();
-  if(view==='lesson'&&L&&L.phase==='practice'&&!practiceRevealed){const ta=document.getElementById('tr');if(ta)ta.value=transcript;setMic();startTimer();}
-  else{stopTimerInt();}
+  if(view==='lesson'&&L&&L.phase==='practice'&&!practiceRevealed){const ta=document.getElementById('tr');if(ta)ta.value=transcript;setMic();
+    const qid=L.qs[L.idx].id;if(timerQ!==qid){timerQ=qid;startTimer();}}
+  else{stopTimerInt();timerQ=null;}
   renderMath();}
+let timerQ=null;
 function renderMath(){if(!window.katex)return;document.querySelectorAll('[data-tex]').forEach(el=>{if(el.dataset.done)return;try{katex.render(el.getAttribute('data-tex'),el,{throwOnError:false,displayMode:true});el.dataset.done='1';}catch(e){}});}
 window.addEventListener('load',()=>setTimeout(renderMath,300));
 function updateCount(){const subs=allSubs();const done=subs.filter(s=>les(s.key).passed).length;document.getElementById('count').textContent=done+' / '+subs.length+' тем';}
@@ -362,7 +364,7 @@ function resetAll(){if(confirm('Сбросить весь прогресс?')){S
 function parseNum(s){if(s==null)return null;const parts=String(s).replace(',','.').replace(/[^0-9.\-]/g,' ').trim().split(/\s+/);for(const p of parts){const f=parseFloat(p);if(!isNaN(f))return f;}return null;}
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function escAttr(s){return esc(s).replace(/"/g,'&quot;')}
-function escJs(s){return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")}
+function escJs(s){return String(s||'').replace(/\\/g,'\\\\').replace(/"/g,'&quot;').replace(/'/g,"\\'")}
 function md(s){if(!s)return '';let h=esc(s);h=h.replace(/`([^`]+)`/g,'<code>$1</code>');h=h.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');h=h.replace(/\n/g,'<br>');return h;}
 
 const TG=window.Telegram&&window.Telegram.WebApp;
