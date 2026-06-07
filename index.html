@@ -426,7 +426,11 @@ function resetAll(){if(confirm('Сбросить весь прогресс?')){S
 const W_A = WRITTEN.filter(q=>q.part==='A'&&q.type==='mcq');
 const W_B = WRITTEN.filter(q=>q.part==='B');
 function wst(id){return S.wprog[id]||{status:'unseen'};}
-function wCat(t){return String(t||'Прочее').split(/[\/:]/)[0].trim();}
+function wCat(t){let c=String(t||'Прочее').split(/[\/:]/)[0].trim().replace(/ё/g,'е');
+  if(/^Бухгалтерский учет/.test(c)||c==='Учет')return 'Бухгалтерский учёт';
+  if(/^Оценка/.test(c))return 'Оценка бизнеса';
+  if(/^Финансовые инструменты/.test(c))return 'Финансовые инструменты';
+  return c;}
 function wTopics(){const seen=[],map={};W_A.forEach(q=>{const t=wCat(q.topic);if(!map[t]){map[t]=[];seen.push(t);}map[t].push(q);});return seen.map(t=>({topic:t,qs:map[t]}));}
 function writtenHomeHTML(){
   const done=W_A.filter(q=>wst(q.id).status!=='unseen').length;
