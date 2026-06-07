@@ -116,6 +116,12 @@ padding-bottom:calc(12px + env(safe-area-inset-bottom));display:flex;gap:10px}
 .mhead .mtog{color:var(--muted);font-size:20px;font-weight:700}
 .mbody{padding:0 14px 14px;font-size:15px;line-height:1.55}
 .mbody b{color:var(--ink)}
+.mbody p{margin:8px 0}
+.mbody h3{font-size:15px;color:var(--navy);margin:12px 0 6px}
+.mbody .ml{margin:6px 0;padding-left:18px}.mbody .ml li{margin:3px 0}
+.mtbl{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0}
+.mtbl th,.mtbl td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+.mtbl th{background:var(--chip);font-weight:700;color:var(--navy2)}
 .note-tip{color:var(--muted);font-size:13px;margin-top:14px;line-height:1.45}
 hr.div{border:none;border-top:1px solid var(--line);margin:18px 0}
 </style>
@@ -165,7 +171,9 @@ function render(){const app=document.getElementById('app');updateCount();
   else{stopTimerInt();timerQ=null;}
   renderMath();}
 let timerQ=null;
-function renderMath(){if(!window.katex)return;document.querySelectorAll('[data-tex]').forEach(el=>{if(el.dataset.done)return;try{katex.render(el.getAttribute('data-tex'),el,{throwOnError:false,displayMode:true});el.dataset.done='1';}catch(e){}});}
+function renderMath(){if(!window.katex)return;
+  document.querySelectorAll('[data-tex]').forEach(el=>{if(el.dataset.done)return;try{katex.render(el.getAttribute('data-tex'),el,{throwOnError:false,displayMode:true});el.dataset.done='1';}catch(e){}});
+  document.querySelectorAll('[data-tex-inline]').forEach(el=>{if(el.dataset.done)return;try{katex.render(el.getAttribute('data-tex-inline'),el,{throwOnError:false,displayMode:false});el.dataset.done='1';}catch(e){}});}
 window.addEventListener('load',()=>setTimeout(renderMath,300));
 function updateCount(){const el=document.getElementById('count');if(!el)return;const subs=allSubs();const done=subs.filter(s=>les(s.key).passed).length;el.textContent=done+' / '+subs.length+' тем';}
 
@@ -355,10 +363,28 @@ function stopTimerInt(){if(timerInt){clearInterval(timerInt);timerInt=null;}}
 /* ---------- CHEAT / PROGRESS ---------- */
 let methOpen=null;
 function toggleMeth(i){methOpen=(methOpen===i)?null:i;render();window.scrollTo(0,0);}
+function methInline(s){let h=esc(s);h=h.replace(/`([^`]+)`/g,'<code>$1</code>');h=h.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');return h;}
+function methTable(rows){const cells=r=>r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+  const head=cells(rows[0]);const body=rows.slice(2).map(cells);
+  let h='<div style="overflow-x:auto"><table class="mtbl"><thead><tr>'+head.map(c=>'<th>'+methInline(c)+'</th>').join('')+'</tr></thead><tbody>';
+  body.forEach(r=>{h+='<tr>'+r.map(c=>'<td>'+methInline(c)+'</td>').join('')+'</tr>';});return h+'</tbody></table></div>';}
+function methMd(s){if(!s)return '';const math=[];
+  s=s.replace(/\$\$([\s\S]+?)\$\$/g,(_,x)=>{math.push(['d',x]);return ''+(math.length-1)+'';});
+  s=s.replace(/\$([^$\n]+?)\$/g,(_,x)=>{math.push(['i',x]);return ''+(math.length-1)+'';});
+  s=s.replace(/\\n/g,'\n');
+  const lines=s.split('\n');let html='',i=0;
+  while(i<lines.length){const ln=lines[i];
+    if(/^\s*\|.*\|\s*$/.test(ln)&&i+1<lines.length&&/^\s*\|[\s:|-]+\|\s*$/.test(lines[i+1])){const rows=[];while(i<lines.length&&/^\s*\|.*\|\s*$/.test(lines[i])){rows.push(lines[i]);i++;}html+=methTable(rows);continue;}
+    if(/^#{1,3}\s+/.test(ln)){html+='<h3>'+methInline(ln.replace(/^#{1,3}\s+/,''))+'</h3>';i++;continue;}
+    if(ln.trim()===''){i++;continue;}
+    if(/^\s*[-–•]\s+/.test(ln)){let items=[];while(i<lines.length&&/^\s*[-–•]\s+/.test(lines[i])){items.push(lines[i].replace(/^\s*[-–•]\s+/,''));i++;}html+='<ul class="ml">'+items.map(t=>'<li>'+methInline(t)+'</li>').join('')+'</ul>';continue;}
+    html+='<p>'+methInline(ln)+'</p>';i++;}
+  html=html.replace(/(\d+)/g,(_,n)=>{const mm=math[+n];return mm[0]==='d'?'<div class="fbox"><span data-tex="'+escAttr(mm[1])+'"></span></div>':'<span data-tex-inline="'+escAttr(mm[1])+'"></span>';});
+  return html;}
 function methodHTML(){
   if(!METHOD||!METHOD.length)return '<h1>Методички</h1><p class="sub">Скоро.</p><div class="section"><button class="btn ghost" onclick="go(\'home\')">На главную</button></div>';
   const cards=METHOD.map((m,i)=>{const open=methOpen===i;
-    return `<div class="mcard"><div class="mhead" onclick="toggleMeth(${i})"><span class="mt">${esc(m.title)}</span><span class="mtog">${open?'−':'+'}</span></div>${open?`<div class="mbody">${md(m.body_md)}${(m.formulas||[]).map(f=>`<div class="fbox"><span data-tex="${escAttr(f)}"></span></div>`).join('')}</div>`:''}</div>`;}).join('');
+    return `<div class="mcard"><div class="mhead" onclick="toggleMeth(${i})"><span class="mt">${esc(m.title)}</span><span class="mtog">${open?'−':'+'}</span></div>${open?`<div class="mbody">${methMd(m.body_md)}${(m.formulas||[]).map(f=>`<div class="fbox"><span data-tex="${escAttr(f)}"></span></div>`).join('')}</div>`:''}</div>`;}).join('');
   return `<h1>Методички</h1><p class="sub">Быстрые шпаргалки по горячим темам экзамена</p>${cards}<div class="section"><button class="btn ghost" onclick="go('home')">На главную</button></div>`;}
 function cheatHTML(){let out='<h1>Шпаргалка</h1><p class="sub">Все формулы и термины по разделам. Листай перед экзаменом.</p>';
   BLOCK_LIST.forEach(b=>{out+=`<h2>${b.num}. ${esc(b.title)}</h2>`;
