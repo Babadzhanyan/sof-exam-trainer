@@ -50,6 +50,7 @@ body{margin:0;font-family:'Source Sans Pro',-apple-system,system-ui,sans-serif;c
 .chip b{color:var(--navy);font-weight:600}
 /* виджеты */
 .vizwrap{margin:8px 0 10px;border:1px solid #E8ECF1;border-radius:12px;padding:12px 12px 10px;background:linear-gradient(180deg,#FCFDFE,#F5F8FC)}
+.viz svg{display:block;width:100%;max-width:440px;height:auto;margin:0 auto}
 .ew-plot .ew-cap,.ew-cap{font-size:13px;color:var(--text);margin-top:8px;line-height:1.5}
 .ew-cap .ewm{color:var(--muted)}
 .ew-ctrls{margin-top:8px}
@@ -374,7 +375,7 @@ var EW = (function () {
       var gx0 = X(xmin), gx1 = X(xmax), gy0 = Y(ymin), gy1 = Y(ymax);
       var gid = 'ewg' + (plot._n = (plot._n || 0) + 1);
       var ser = r.series || [];
-      var primary = ser.length === 1 ? ser[0] : (ser.filter(function (s) { return s.fill; })[0] || null);
+      var primary = ser.filter(function (s) { return s.fill; })[0] || null;
       if (primary && !primary.noFill) { var defs = el('defs'); var grad = el('linearGradient', { id: gid, x1: '0', y1: '0', x2: '0', y2: '1' });
         grad.appendChild(el('stop', { offset: '0%', 'stop-color': primary.color || C.navy, 'stop-opacity': '0.22' }));
         grad.appendChild(el('stop', { offset: '100%', 'stop-color': primary.color || C.navy, 'stop-opacity': '0' }));
@@ -453,20 +454,32 @@ var EW = (function () {
   /* ================= ВИДЖЕТЫ ================= */
   var R = {};
 
-  /* --- Эффект дохода/замещения: спрос (price→Q) с разложением для 3 благ --- */
+  /* --- Эффект дохода/замещения: каноничная картинка (бюджет + кривые безразличия + A→C→B) --- */
   R.indiff_budget = function (host, d) {
-    plot(host, { W: 330, H: 240, x: { min: 0, max: 10, label: 'Количество Q' }, y: { min: 0, max: 10, label: 'Цена P' },
+    plot(host, { W: 340, H: 310, margin: { l: 30, r: 18, t: 16, b: 40 },
+      x: { min: 0, max: 50, label: 'товар X (дорожает)' }, y: { min: 0, max: 130, label: 'другие товары Y' },
       buttons: [{ key: 'good', label: 'Тип блага', vals: [
         { t: 'Нормальное', val: 'normal' }, { t: 'Инфериорное', val: 'inferior' }, { t: 'Гиффена', val: 'giffen' }] }],
       compute: function (s) {
-        var slope = s.good === 'giffen' ? 0.55 : (s.good === 'inferior' ? 1.0 : 1.4);
-        var dem = plot._lin(0.6, 9.5, 30).map(function (q) { return [q, Math.max(0.4, 10 - slope * q)]; });
-        var sub = s.good === 'giffen' ? 'замещение −, доход + (сильнее)' : (s.good === 'inferior' ? 'замещение −, доход + (слабее)' : 'замещение − и доход − в одну сторону');
-        var capm = s.good === 'giffen'
-          ? 'Гиффен: эффект дохода перевешивает → спрос РАСТЁТ при росте цены (наклон +)'
-          : (s.good === 'inferior' ? 'Инфериорное: доход тянет назад, но замещение сильнее → спрос всё равно падает' : 'Нормальное: оба эффекта в одну сторону → спрос падает (наклон −)');
-        return { series: [{ pts: dem, color: s.good === 'giffen' ? C.red : C.navy, label: 'спрос', width: 2.4 }],
-          caption: '<b>' + (s.good === 'giffen' ? 'Гиффен' : s.good === 'inferior' ? 'Инфериорное' : 'Нормальное') + '.</b> ' + capm + '. <span class="ewm">(' + sub + ')</span>' };
+        var A = [30, 60], Cs = [26.83, 67.08];           // A на бюджете 1; Cs – замещение (касание нового наклона к старой U)
+        var B = s.good === 'giffen' ? [36, 30] : s.good === 'inferior' ? [28, 50] : [24, 60];
+        var b1 = [[0, 120], [50, 20]];                    // Px=2:  2x+y=120
+        var b2 = [[0, 120], [48, 0]];                     // Px=2,5: рост цены X
+        var comp = [[0, 134.2], [50, 9.2]];               // компенсированный бюджет (наклон нового, касается старой U)
+        function ic(U) { var o = [], x; for (x = 11; x <= 50; x += 1) { var y = U / x; if (y <= 130) o.push([x, y]); } return o; }
+        var dirName = s.good === 'giffen' ? 'вправо, за A' : s.good === 'inferior' ? 'чуть вправо' : 'влево';
+        var net = s.good === 'giffen' ? 'X РАСТЁТ при росте цены (наклон спроса +)' : s.good === 'inferior' ? 'X падает, но слабее (доход частично гасит)' : 'X падает (оба эффекта вниз)';
+        return { series: [
+            { pts: b1, color: '#9AA7B8', label: 'бюджет 1' },
+            { pts: comp, color: C.amber, dash: '5 4', label: 'компенс.' },
+            { pts: b2, color: C.navy, label: 'бюджет 2 (Px↑)' },
+            { pts: ic(1800), color: '#C4CDDB', label: 'U₁' },
+            { pts: ic(B[0] * B[1]), color: '#D7B7B0', label: 'U₂' }],
+          points: [
+            { x: A[0], y: A[1], label: 'A', color: C.green },
+            { x: Cs[0], y: Cs[1], label: 'C', color: C.amber },
+            { x: B[0], y: B[1], label: 'B', color: C.red }],
+          caption: '<b>A→C</b> = эффект замещения (всегда уменьшает X при росте его цены). <b>C→B</b> = эффект дохода (' + dirName + '). Итог A→B: ' + net + '.' };
       } });
   };
 
@@ -520,30 +533,28 @@ var EW = (function () {
 
   /* --- Конкурентная фирма: MC, ATC, AVC, P (shutdown) --- */
   R.firm_cost_curves = function (host, d) {
-    plot(host, { W: 330, H: 250, x: { min: 0, max: 10, label: 'Q' }, y: { min: 0, max: 15, label: '₽' },
-      sliders: [{ key: 'P', label: 'Рыночная цена P', min: 2, max: 13, step: 0.5, val: 9 }],
+    plot(host, { W: 330, H: 250, x: { min: 0, max: 10, label: 'Q' }, y: { min: 0, max: 13, label: '₽' },
+      sliders: [{ key: 'P', label: 'Рыночная цена P', min: 2, max: 12, step: 0.5, val: 9 }],
       compute: function (s) {
-        function atc(q) { return 36 / q + 0.5 + 0.18 * q * q / 2; }
-        function avc(q) { return 2 + 0.18 * q * q / 2; }
-        function mc(q) { return 2 + 0.18 * q * q; }
-        var xs = plot._lin(1, 8, 40);
-        var ATC = xs.map(function (q) { return [q, atc(q)]; });
-        var AVC = xs.map(function (q) { return [q, avc(q)]; });
-        var MC = xs.map(function (q) { return [q, mc(q)]; });
-        // q* where MC = P
-        var qs = 1; for (var q = 1; q <= 9.5; q += 0.02) { if (mc(q) >= s.P) { qs = q; break; } }
-        var minAVC = 3.2, minATC = 4.6;
+        function avc(q) { return 8 - 1.4 * q + 0.12 * q * q; }   // U-образная: минимум в q≈5,8
+        function mc(q) { return 8 - 2.8 * q + 0.36 * q * q; }    // пересекает AVC и ATC в их минимумах
+        function atc(q) { return 20 / q + avc(q); }              // FC=20
+        var xs = plot._lin(1.2, 9, 48);
+        // минимумы считаем по самим кривым (порог = минимум, не хардкод)
+        var minAVC = 1e9, minATC = 1e9, qAVC = 0, qATC = 0, q;
+        for (q = 1.2; q <= 9; q += 0.02) { if (avc(q) < minAVC) { minAVC = avc(q); qAVC = q; } if (atc(q) < minATC) { minATC = atc(q); qATC = q; } }
+        var qs = qAVC; for (q = 3.9; q <= 9; q += 0.02) { if (mc(q) >= s.P) { qs = q; break; } }
         var verdict, col;
-        if (s.P >= minATC) { verdict = 'P ≥ ATC → прибыль, работать'; col = C.green; }
-        else if (s.P >= minAVC) { verdict = 'AVC ≤ P < ATC → убыток, но работать (покрывает переменные)'; col = C.amber; }
-        else { verdict = 'P < AVC → ЗАКРЫТЬСЯ (не покрывает даже переменные)'; col = C.red; }
+        if (s.P >= minATC) { verdict = 'P ≥ min ATC → прибыль, работать'; col = C.green; }
+        else if (s.P >= minAVC) { verdict = 'min AVC ≤ P < min ATC → убыток, но работать (покрывает переменные)'; col = C.amber; }
+        else { verdict = 'P < min AVC → ЗАКРЫТЬСЯ (не покрывает даже переменные)'; col = C.red; }
         return { series: [
-            { pts: MC, color: C.navy, label: 'MC' },
-            { pts: ATC, color: C.muted, label: 'ATC' },
-            { pts: AVC, color: C.amber, label: 'AVC', dash: '5 4' },
+            { pts: xs.map(function (q) { return [q, mc(q)]; }), color: C.navy, label: 'MC' },
+            { pts: xs.map(function (q) { return [q, atc(q)]; }), color: C.muted, label: 'ATC' },
+            { pts: xs.map(function (q) { return [q, avc(q)]; }), color: C.amber, label: 'AVC', dash: '5 4' },
             { pts: [[0, s.P], [10, s.P]], color: col, label: 'P', width: 2.4 }],
-          points: [{ x: qs, y: s.P, color: col }],
-          caption: '<b style="color:' + col + '">' + verdict + '.</b> Точка закрытия = минимум AVC. Решение об остановке смотрит на AVC, не на ATC.' };
+          points: [{ x: qAVC, y: minAVC, color: C.red, r: 3.5, label: 'точка закрытия', ly: 16 }, { x: qs, y: s.P, color: col }],
+          caption: '<b style="color:' + col + '">' + verdict + '.</b> Точка закрытия = минимум AVC (' + fmt(minAVC, 1) + '). Решение об остановке смотрит на AVC, не на ATC.' };
       } });
   };
 
@@ -564,7 +575,7 @@ var EW = (function () {
 
   /* --- Бертран: цена падает к MC --- */
   R.bertrand = function (host, d) {
-    plot(host, { W: 320, H: 220, x: { min: 0, max: 6, label: 'раунд подрезания цены' }, y: { min: 0, max: 12, label: 'цена' },
+    plot(host, { W: 320, H: 220, x: { min: 0, max: 6, label: 'итерация подрезания (схематично)' }, y: { min: 0, max: 12, label: 'цена' },
       compute: function () {
         var mc = 3;
         var p = [[0, 11], [1, 8], [2, 6], [3, 4.5], [4, 3.6], [5, 3.1], [6, 3]];
@@ -605,10 +616,10 @@ var EW = (function () {
   /* --- Policy mix 2x2 --- */
   R.matrix2x2 = function (host, d) {
     var cells = {
-      'tight-tight': ['Жёсткая + Жёсткая', 'сильное торможение – острый перегрев/высокая инфляция', C.red],
-      'tight-loose': ['Монетарная жёсткая + Фискальная мягкая', 'смешанно: ЦБ давит, бюджет толкает (конфликт целей)', C.amber],
-      'loose-tight': ['Монетарная мягкая + Фискальная жёсткая', 'смешанно: дешёвые деньги, но бюджет экономит', C.amber],
-      'loose-loose': ['Мягкая + Мягкая', 'сильный стимул – глубокая рецессия', C.green] };
+      'tight-tight': ['Жёсткая + Жёсткая', 'максимальное охлаждение спроса → применяют при перегреве и высокой инфляции', C.red],
+      'tight-loose': ['Монетарная жёсткая + Фискальная мягкая', 'смешанно: ЦБ тормозит, бюджет стимулирует – конфликт целей', C.amber],
+      'loose-tight': ['Монетарная мягкая + Фискальная жёсткая', 'смешанно: дешёвые деньги, но бюджет затягивает пояс', C.amber],
+      'loose-loose': ['Мягкая + Мягкая', 'максимальный стимул спроса → применяют при рецессии для разгона', C.green] };
     var wrap = H('div', null);
     wrap.appendChild(H('div', 'ew-cap', 'Нажми ячейку: монетарная (ось) × фискальная (ось).'));
     var grid = H('div', 'ew-mx');
@@ -629,11 +640,19 @@ var EW = (function () {
   /* --- Output gap --- */
   R.output_gap = function (host, d) {
     plot(host, { W: 330, H: 220, x: { min: 0, max: 10, label: 'время' }, y: { min: 0, max: 10, label: 'ВВП' },
-      compute: function () {
-        var pot = [[0, 2], [10, 8]];
-        var act = plot._lin(0, 10, 40).map(function (t) { return [t, 2 + 0.6 * t + 1.3 * Math.sin(t * 0.9)]; });
-        return { series: [{ pts: pot, color: C.muted, dash: '6 4', label: 'потенциал' }, { pts: act, color: C.navy, label: 'факт. ВВП' }],
-          caption: 'Факт выше потенциала = <b>перегрев</b> (положительный output gap) → инфляция ускоряется, ЦБ повышает ставку. Ниже = рецессионный разрыв.' };
+      sliders: [{ key: 't', label: 'момент времени', min: 0, max: 10, step: 0.2, val: 7, fmt: function (v) { return fmt(v, 1); } }],
+      compute: function (s) {
+        function pot(t) { return 2 + 0.6 * t; } function act(t) { return 2 + 0.6 * t + 1.3 * Math.sin(t * 0.9); }
+        var P = [[0, pot(0)], [10, pot(10)]];
+        var A = plot._lin(0, 10, 48).map(function (t) { return [t, act(t)]; });
+        var gap = act(s.t) - pot(s.t);
+        var sign = gap > 0.15 ? '<b style="color:' + C.red + '">перегрев</b>: факт выше потенциала → инфляция ускоряется, ЦБ повышает ставку'
+          : gap < -0.15 ? '<b style="color:' + C.navy + '">рецессионный разрыв</b>: факт ниже потенциала → безработица растёт, ЦБ снижает ставку'
+          : 'около потенциала (нейтрально)';
+        return { series: [{ pts: P, color: C.muted, dash: '6 4', label: 'потенциал' }, { pts: A, color: C.navy, label: 'факт. ВВП' }],
+          vlines: [{ x: s.t }],
+          points: [{ x: s.t, y: act(s.t), color: gap > 0 ? C.red : C.navy, label: 'сейчас', r: 4.5 }, { x: s.t, y: pot(s.t), color: C.muted, r: 3 }],
+          caption: 'Разрыв выпуска = ' + (gap > 0 ? '+' : '') + fmt(gap, 1) + '. ' + sign };
       } });
   };
 
@@ -644,13 +663,17 @@ var EW = (function () {
         return v < 3 ? 'восстановление' : v < 6 ? 'пик/перегрев' : v < 9 ? 'спад/рецессия' : 'дно'; } }],
       compute: function (s) {
         var w = plot._lin(0, 12, 60).map(function (t) { return [t, 5 + 3 * Math.sin((t - 1.5) * Math.PI / 6)]; });
+        var u = plot._lin(0, 12, 60).map(function (t) { return [t, 5 - 2.4 * Math.sin((t - 1.5) * Math.PI / 6)]; });
         var y = 5 + 3 * Math.sin((s.ph - 1.5) * Math.PI / 6);
         var phase = s.ph < 3 ? 'Восстановление: рост, низкая инфляция, ставки низкие' :
           s.ph < 6 ? 'Пик/перегрев: инфляция и ставки вверх' :
           s.ph < 9 ? 'Спад/рецессия: выпуск падает, безработица растёт' :
           'Дно: минимум активности, ЦБ смягчает';
-        return { series: [{ pts: w, color: C.navy, label: '' }], points: [{ x: s.ph, y: y, color: C.red, r: 5 }],
-          caption: '<b>' + phase + '.</b> Инфляция и безработица движутся в противофазе (кривая Филлипса).' };
+        return { series: [
+            { pts: w, color: C.navy, label: 'выпуск' },
+            { pts: u, color: C.amber, dash: '5 4', label: 'безработица' }],
+          points: [{ x: s.ph, y: y, color: C.red, r: 5 }],
+          caption: '<b>' + phase + '.</b> Выпуск и безработица идут в противофазе: на пике безработица минимальна – это и есть кривая Филлипса.' };
       } });
   };
 
@@ -759,7 +782,7 @@ var EW = (function () {
         var pts = plot._lin(1, 16, 40).map(function (y) { return [y, price(y)]; });
         var y0 = 7; var p0 = price(y0); var dp = (price(y0 + 0.01) - price(y0 - 0.01)) / 0.02;
         var tang = [[y0 - 4, p0 - dp * 4], [y0 + 4, p0 + dp * 4]];
-        return { series: [{ pts: pts, color: C.navy, label: 'цена' }, { pts: tang, color: C.red, dash: '5 4', label: 'дюрация (наклон)' }],
+        return { series: [{ pts: pts, color: C.navy, label: 'цена' }, { pts: tang, color: C.red, dash: '5 4', label: 'наклон ≈ −дюрация' }],
           points: [{ x: y0, y: p0, color: C.ink }],
           caption: 'Дюрация = наклон (чувствительность цены к ставке): %ΔP ≈ −ModDur·Δy. <b>Длинные и низкокупонные</b> облигации круче (выше дюрация). Кривизна = выпуклость (convexity).' };
       } });
@@ -842,7 +865,7 @@ var EW = (function () {
         var intr = plot._lin(40, 160, 2).map(function (S) { return [S, Math.max(S - K, 0)]; });
         var d1 = (Math.log(100 / K) + (r + sig * sig / 2) * T) / (sig * Math.sqrt(T));
         return { series: [{ pts: pts, color: C.navy, label: 'call' }, { pts: intr, color: C.muted, dash: '4 4', label: 'внутр. стоимость' }],
-          caption: 'Вход: S, K, T, σ, r. Чем выше <b>σ</b> и <b>T</b> – тем дороже опцион (больше шанс уйти в деньги). Delta = N(d₁) ≈ ' + fmt(cdf(d1), 2) + ' (на сколько вырастет цена опциона при +1 актива).' };
+          caption: 'Вход: S, K, T, σ, r. Чем выше <b>σ</b> и <b>T</b> – тем дороже опцион (больше шанс уйти в деньги). Delta при S=K (ATM) = N(d₁) ≈ ' + fmt(cdf(d1), 2) + ' (на сколько вырастет цена опциона при +1 актива).' };
       } });
     host.appendChild(H('div', 'ew-cap', 'Греки: Delta (к цене), Gamma (к Delta), Vega (к σ), Theta (к времени, обычно −), Rho (к ставке).'));
   };
