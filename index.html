@@ -40,7 +40,7 @@ h3{font-size:15px;color:var(--navy);margin:12px 0 6px}
 .btn.ghost{background:#fff;color:var(--navy);border:1px solid var(--line)} .btn.ghost:active{background:var(--chip)}
 .btn.sm{padding:11px 12px;font-size:15px}
 .row{display:flex;gap:10px}.row>*{flex:1}
-.modecard{display:block;width:100%;text-align:left;border:1px solid var(--line);border-radius:12px;padding:16px;background:#fff}
+.modecard{display:block;width:100%;text-align:left;border:1px solid var(--line);border-radius:12px;padding:16px;background:#fff;text-decoration:none;color:inherit}
 .modecard:active{background:var(--chip)}
 .modecard.on{border-color:var(--navy);background:#F6F8FB}
 .modecard .t{font-weight:700;font-size:17px;color:var(--navy)}
@@ -198,9 +198,11 @@ function render(){const app=document.getElementById('app');updateCount();
   else{stopTimerInt();timerQ=null;}
   renderMath();}
 let timerQ=null;
+function fitFormulas(){document.querySelectorAll('.fbox,.cf').forEach(function(box){var k=box.querySelector('.katex-display')||box.querySelector('.katex');if(!k)return;k.style.transformOrigin='left center';k.style.transform='';var avail=box.clientWidth||0,w=k.scrollWidth||0;if(w>avail+1&&avail>0){var s=Math.max(0.5,avail/w);k.style.transform='scale('+s.toFixed(3)+')';box.style.overflowX='hidden';}});}
 function renderMath(){if(!window.katex)return;
   document.querySelectorAll('[data-tex]').forEach(el=>{if(el.dataset.done)return;try{katex.render(el.getAttribute('data-tex'),el,{throwOnError:false,displayMode:true});el.dataset.done='1';}catch(e){}});
-  document.querySelectorAll('[data-tex-inline]').forEach(el=>{if(el.dataset.done)return;try{katex.render(el.getAttribute('data-tex-inline'),el,{throwOnError:false,displayMode:false});el.dataset.done='1';}catch(e){}});}
+  document.querySelectorAll('[data-tex-inline]').forEach(el=>{if(el.dataset.done)return;try{katex.render(el.getAttribute('data-tex-inline'),el,{throwOnError:false,displayMode:false});el.dataset.done='1';}catch(e){}});
+  fitFormulas();}
 window.addEventListener('load',()=>setTimeout(renderMath,300));
 function plural(n,one,few,many){const m=Math.abs(n)%100,d=m%10;if(m>10&&m<20)return many;if(d>1&&d<5)return few;if(d===1)return one;return many;}
 function updateCount(){const el=document.getElementById('count');if(!el)return;
