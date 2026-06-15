@@ -20,6 +20,9 @@ body{font-family:'Source Sans Pro',-apple-system,system-ui,sans-serif;color:var(
 font-size:16px;line-height:1.5;padding-bottom:env(safe-area-inset-bottom)}
 code,.mono{font-family:'Source Code Pro',ui-monospace,Menlo,monospace}
 button{font-family:inherit;font-size:16px;cursor:pointer;border:none;background:none}
+/* надёжность тапов на мобиле/Telegram: убрать 300ms-задержку и double-tap-zoom, дать отклик */
+.modecard,.subrow,.blockhead,.phase,.navchip,.lnk,.crumb,.opt,.badge,.go,.btn,button,a,[onclick]{touch-action:manipulation;cursor:pointer}
+.modecard:active,.subrow:active,.blockhead:active,.phase:active,.opt:active,.btn:active,.lnk:active{background:var(--chip)}
 .wrap{max-width:680px;margin:0 auto;padding:0 16px 40px}
 .top{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--line);
 padding:8px 12px;display:flex;align-items:center;gap:8px;padding-top:calc(8px + env(safe-area-inset-top))}
@@ -213,7 +216,8 @@ function startHTML(){
   <button class="modecard on" style="width:100%;margin-bottom:12px" onclick="setTrack('written')">
     <div class="t">Письменный экзамен</div><div class="d">Тест в универе. Часть А – ${WRITTEN.filter(q=>q.part==='A').length} MCQ по темам + симуляция 75 вопросов, Часть В – кейсы-расчёты. С объяснениями ошибок и теорией</div></button>
   <a class="modecard" style="width:100%;border-left:4px solid var(--navy)" href="express.html">
-    <div class="t">Экспресс-гайд: визуальные объяснялки</div><div class="d">32 темы, где легко поплыть (микро / макро / FX / облигации / деривативы / портфель) – простым языком, с интерактивными графиками. Читается за час перед экзаменом</div></a></div>`;}
+    <div class="t">Экспресс-гайд: визуальные объяснялки</div><div class="d">32 темы, где легко поплыть (микро / макро / FX / облигации / деривативы / портфель) – простым языком, с интерактивными графиками. Читается за час перед экзаменом</div></a></div>
+  <div style="text-align:left;color:var(--muted);font-size:12px;margin-top:18px">Версия 7.2 / если кнопка не реагирует – обнови страницу (потяни вниз) или открой в Safari</div>`;}
 function setTrack(t){S.track=t;view='home';save();render();window.scrollTo(0,0);}
 function switchTrack(){S.track=null;view='home';wExam=null;save();render();window.scrollTo(0,0);}
 
