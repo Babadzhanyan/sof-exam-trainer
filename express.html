@@ -409,6 +409,16 @@ var EW = (function () {
         svg.appendChild(el('line', { x1: gx0, y1: Y(h.y), x2: gx1, y2: Y(h.y), stroke: h.color || '#C9D4E3', 'stroke-width': 1, 'stroke-dasharray': '4 3' }));
         if (h.label) svg.appendChild(txt(gx1, Y(h.y) - 3, h.label, { 'text-anchor': 'end', 'font-size': 10, fill: C.muted }));
       });
+      var placed = [];
+      function place(x, y, tw) { // развести налезающие подписи по вертикали
+        var yy = Math.max(11, Math.min(Ht - 4, y));
+        for (var guard = 0; guard < 6; guard++) {
+          var hit = false;
+          placed.forEach(function (pp) { if (Math.abs(pp.x - x) < (tw + pp.tw) * 0.5 + 4 && Math.abs(pp.y - yy) < 12) { yy = pp.y + 13; hit = true; } });
+          if (!hit) break;
+        }
+        placed.push({ x: x, y: yy, tw: tw }); return yy;
+      }
       ser.forEach(function (s) {
         if (!s.pts || !s.pts.length) return;
         var d = s.pts.map(function (p, i) { return (i ? 'L' : 'M') + X(p[0]) + ' ' + Y(p[1]); }).join(' ');
@@ -418,14 +428,16 @@ var EW = (function () {
           var lxx = X(at[0]) + (s.lx || 4), lan = s.anchor || 'start';
           if (lxx + tw > W - 2) { lxx = W - 2; lan = 'end'; }
           if (lan === 'end' && lxx - tw < 2) lxx = Math.min(W - 2, tw + 2);
-          svg.appendChild(txt(lxx, Math.max(11, Y(at[1]) + (s.ly || -5)), s.label, { 'font-size': 11, fill: s.color || C.navy, 'font-weight': 700, 'text-anchor': lan })); }
+          var anchorX = lan === 'end' ? lxx - tw / 2 : lxx + tw / 2;
+          svg.appendChild(txt(lxx, place(anchorX, Y(at[1]) + (s.ly || -5), tw), s.label, { 'font-size': 11, fill: s.color || C.navy, 'font-weight': 700, 'text-anchor': lan })); }
       });
       (r.points || []).forEach(function (p) {
         svg.appendChild(el('circle', { cx: X(p.x), cy: Y(p.y), r: (p.r || 4) + 2.5, fill: '#fff' }));
         svg.appendChild(el('circle', { cx: X(p.x), cy: Y(p.y), r: p.r || 4, fill: p.color || C.ink }));
         if (p.label) { var ptw = p.label.length * 5.8, pxx = X(p.x) + (p.lx || 7), pan = p.anchor || 'start';
           if (pxx + ptw > W - 2) { pxx = W - 2; pan = 'end'; }
-          svg.appendChild(txt(pxx, Math.max(11, Y(p.y) + (p.ly || -7)), p.label, { 'font-size': 11, fill: p.color || C.ink, 'font-weight': 700, 'text-anchor': pan })); }
+          var paX = pan === 'end' ? pxx - ptw / 2 : pxx + ptw / 2;
+          svg.appendChild(txt(pxx, place(paX, Y(p.y) + (p.ly || -7), ptw), p.label, { 'font-size': 11, fill: p.color || C.ink, 'font-weight': 700, 'text-anchor': pan })); }
       });
       cap.innerHTML = r.caption || cfg.caption || '';
     }
@@ -508,13 +520,13 @@ var EW = (function () {
 
   /* --- Конкурентная фирма: MC, ATC, AVC, P (shutdown) --- */
   R.firm_cost_curves = function (host, d) {
-    plot(host, { W: 330, H: 250, x: { min: 0, max: 10, label: 'Q' }, y: { min: 0, max: 14, label: '₽' },
+    plot(host, { W: 330, H: 250, x: { min: 0, max: 10, label: 'Q' }, y: { min: 0, max: 15, label: '₽' },
       sliders: [{ key: 'P', label: 'Рыночная цена P', min: 2, max: 13, step: 0.5, val: 9 }],
       compute: function (s) {
         function atc(q) { return 36 / q + 0.5 + 0.18 * q * q / 2; }
         function avc(q) { return 2 + 0.18 * q * q / 2; }
         function mc(q) { return 2 + 0.18 * q * q; }
-        var xs = plot._lin(1, 9.5, 40);
+        var xs = plot._lin(1, 8, 40);
         var ATC = xs.map(function (q) { return [q, atc(q)]; });
         var AVC = xs.map(function (q) { return [q, avc(q)]; });
         var MC = xs.map(function (q) { return [q, mc(q)]; });
@@ -960,23 +972,27 @@ var EW = (function () {
     host.appendChild(wrap);
   }
   function waterfall(host, steps, cap) {
-    var W = 330, Ht = 220, m = { l: 10, r: 10, t: 16, b: 50 };
+    var W = 340, Ht = 232, m = { l: 12, r: 12, t: 26, b: 54 };
     var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + Ht, width: '100%' });
-    var maxv = 0; var run = 0; steps.forEach(function (s, i) { if (i === 0 || i === steps.length - 1) maxv = Math.max(maxv, s[1]); else { run += Math.abs(s[1]); } });
-    maxv = Math.max(maxv, 110);
-    var bw = (W - m.l - m.r) / steps.length - 8;
+    var maxTot = 0; steps.forEach(function (s, i) { if (i === 0 || i === steps.length - 1) maxTot = Math.max(maxTot, s[1]); });
+    var maxv = Math.max(maxTot * 1.14, 10);
+    var slot = (W - m.l - m.r) / steps.length, bw = slot - 16;
     function Y(v) { return Ht - m.b - v / maxv * (Ht - m.t - m.b); }
-    var cum = 0;
+    // лёгкая нижняя ось
+    svg.appendChild(el('line', { x1: m.l, y1: Y(0), x2: W - m.r, y2: Y(0), stroke: C.muted, 'stroke-width': 1 }));
+    var cum = 0, prevX1 = null, prevLevelY = null;
     steps.forEach(function (s, i) {
-      var x = m.l + i * ((W - m.l - m.r) / steps.length) + 4;
+      var x = m.l + i * slot + 8;
       var isTot = (i === 0 || i === steps.length - 1);
       var y0, y1;
       if (isTot) { y0 = Y(0); y1 = Y(s[1]); cum = s[1]; }
       else { var start = cum; cum += s[1]; y0 = Y(Math.max(start, cum)); y1 = Y(Math.min(start, cum)); }
-      svg.appendChild(el('rect', { x: x, y: Math.min(y0, y1), width: bw, height: Math.abs(y1 - y0) + 0.5, fill: s[2], rx: 2 }));
-      var lbl = el('text', { x: x + bw / 2, y: Ht - m.b + 14, 'text-anchor': 'middle', 'font-size': 9, fill: C.muted, 'font-family': "'Source Sans Pro',sans-serif" });
-      wrapText(lbl, s[0], 16); svg.appendChild(lbl);
-      svg.appendChild(txt(x + bw / 2, Math.min(y0, y1) - 3, (s[1] > 0 && !isTot ? '+' : '') + s[1], { 'text-anchor': 'middle', 'font-size': 10, fill: s[2], 'font-weight': 600 }));
+      if (prevX1 != null) svg.appendChild(el('line', { x1: prevX1, y1: prevLevelY, x2: x, y2: prevLevelY, stroke: '#B7C2D2', 'stroke-width': 1, 'stroke-dasharray': '3 3' }));
+      svg.appendChild(el('rect', { x: x, y: Math.min(y0, y1), width: bw, height: Math.max(2, Math.abs(y1 - y0)), fill: s[2], rx: 3 }));
+      var lbl = el('text', { x: x + bw / 2, y: Y(0) + 15, 'text-anchor': 'middle', 'font-size': 9, fill: C.muted, 'font-family': "'Source Sans Pro',sans-serif" });
+      wrapText(lbl, s[0], 15); svg.appendChild(lbl);
+      svg.appendChild(txt(x + bw / 2, Math.min(y0, y1) - 4, (s[1] > 0 && !isTot ? '+' : '') + s[1], { 'text-anchor': 'middle', 'font-size': 11, fill: s[2], 'font-weight': 700 }));
+      prevX1 = x + bw; prevLevelY = Y(cum);
     });
     var wrap = H('div', null); wrap.appendChild(svg);
     if (cap) wrap.appendChild(H('div', 'ew-cap', cap));
@@ -1025,14 +1041,25 @@ function spy(){
   secs.forEach(function(s){ if(s.offsetTop<=y) cur=s; });
   chips.forEach(function(c){ c.classList.toggle('on', cur && c.getAttribute('data-g')===cur.id); });
 }
+function fitTex(){
+  document.querySelectorAll('.fbox').forEach(function(b){
+    var k=b.querySelector('.katex-display')||b.querySelector('.katex'); if(!k)return;
+    k.style.transformOrigin='left center'; k.style.transform='';
+    var avail=b.clientWidth||0, w=k.scrollWidth||0;
+    if(w>avail+1 && avail>0){ var s=Math.max(0.6, avail/w); k.style.transform='scale('+s.toFixed(3)+')'; b.style.overflowX='hidden'; }
+  });
+}
+function afterOpen(){ renderMath(); setTimeout(function(){ renderMath(); fitTex(); }, 30); }
 function toggleCard(btn){ var c=btn.parentNode; var open=c.classList.toggle('open');
-  btn.setAttribute('aria-expanded', open?'true':'false'); if(open) renderMath(); }
+  btn.setAttribute('aria-expanded', open?'true':'false'); if(open) afterOpen(); }
 function toggleAll(btn){ var cards=[].slice.call(document.querySelectorAll('.tcard'));
   var anyClosed=cards.some(function(c){return !c.classList.contains('open');});
-  cards.forEach(function(c){ c.classList.toggle('open', anyClosed); });
-  btn.textContent = anyClosed?'Свернуть всё':'Развернуть всё'; if(anyClosed) renderMath(); }
+  cards.forEach(function(c){ c.classList.toggle('open', anyClosed);
+    var h=c.querySelector('.thead'); if(h) h.setAttribute('aria-expanded', anyClosed?'true':'false'); });
+  btn.textContent = anyClosed?'Свернуть всё':'Развернуть всё'; if(anyClosed) afterOpen(); }
 mountViz();
-window.addEventListener('load', function(){ renderMath(); setTimeout(renderMath,300); });
+window.addEventListener('load', function(){ renderMath(); setTimeout(function(){ renderMath(); fitTex(); },300); });
+window.addEventListener('resize', function(){ clearTimeout(window.__ft); window.__ft=setTimeout(fitTex,200); });
 window.addEventListener('scroll', spy, {passive:true}); spy();
 document.querySelectorAll('.navchip').forEach(function(a){
   a.addEventListener('click', function(e){ e.preventDefault();
