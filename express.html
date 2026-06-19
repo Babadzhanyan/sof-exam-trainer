@@ -1039,6 +1039,30 @@ var EW = (function () {
       } });
   };
 
+  /* --- WACC во времени: единый vs скользящий vs APV --- */
+  R.wacc_modes = function (host, d) {
+    plot(host, { W: 340, H: 230, x: { min: 1, max: 6, label: 'год (6 = terminal value)' }, y: { min: 6, max: 14, label: 'WACC, %' },
+      buttons: [{ key: 'm', label: 'Подход', vals: [{ t: 'Единый (target)', val: 'single' }, { t: 'Скользящий', val: 'roll' }, { t: 'APV', val: 'apv' }] }],
+      compute: function (s) {
+        var target = 11;
+        if (s.m === 'single') {
+          return { series: [{ pts: [[1, target], [6, target]], color: C.navy, label: 'WACC' }],
+            vlines: [{ x: 5, label: 'явный период' }],
+            caption: 'Единый WACC: одна ставка по целевой структуре на все годы И на terminal value. Корректно, когда структура капитала стабильна или быстро сходится к target.' };
+        }
+        if (s.m === 'roll') {
+          return { series: [
+              { pts: [[1, 7.5], [2, 8.4], [3, 9.3], [4, 10.2], [5, target]], color: C.navy, label: 'WACC по годам' },
+              { pts: [[5, target], [6, target]], color: C.green, dash: '5 4', label: 'TV: steady-state' }],
+            vlines: [{ x: 5, label: '' }],
+            caption: 'Скользящий WACC: долг гасится → D/E падает → WACC растёт к target (relever β каждый год по Hamada). Terminal value всегда по устойчивой структуре, не по последнему году. Минус – циркулярность (вес D/V от рыночной стоимости).' };
+        }
+        return { series: [{ pts: [[1, 12], [6, 12]], color: C.navy, label: 'unlevered CoE' }],
+          areas: [{ pts: [[1, 12], [1, 10.8], [5, 10.8], [5, 12]], fill: 'rgba(46,125,91,.16)', label: 'PV tax shield', lc: C.green }],
+          caption: 'APV: unlevered value дисконтируешь по CoE без долга, а PV(tax shield) считаешь отдельно по годам и прибавляешь. Разрывает циркулярность WACC – лучший подход для LBO с меняющимся leverage.' };
+      } });
+  };
+
   /* ---- helpers для бесшейповых ---- */
   function tableEl(rows, cap) {
     var wrap = H('div', null);
